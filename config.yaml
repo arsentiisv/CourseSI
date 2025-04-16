@@ -1,0 +1,10 @@
+ticker: "NVDA"
+start_date: "2020-01-01"
+end_date: "2025-05-05"
+seq_length: 15
+hidden_dim: 300
+num_layers: 2
+dropout: 0.2
+lr: 0.001
+epochs: 30
+batch_size: 32
