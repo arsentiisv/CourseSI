@@ -239,7 +239,7 @@ class Sentiment:
             return 1
         return 0
 
-    ### Кэф прикручивается для более точного поиска, больше->точнее
+### Кэф прикручивается для более точного поиска, больше -> точнее
     def Nstr(self, str1, spis):
         kef = 1.5
         for el in spis.split():
@@ -260,17 +260,21 @@ class Sentiment:
         rev = analyzer.polarity_scores(s)
         return rev['compound']
 
+### Здесь уже объединение всех функций
+    def SAn(self, z, n, k):
+        da_lenta = self.LentaNews(z, n, k)
+        da_rbk = self.RbkNews(z, n, k)
+        da_aif = self.AifNews(z, n, k)
+        da = self.obed(da_lenta, da_rbk, da_aif)
+### Фильтрация, где есть что-то похожее на запрос в заголовке
+        da = da[da['title'].apply(lambda x: self.Nstr(z, x)) == 1]
+### Единственная проблема, что сентимент анализ через nltk принимает только английский текст, а новости сами на русском
+        # da['perevod']=da['title'].apply(lambda x: self.tt(x))
+        # da['sent']=da['perevod'].apply(lambda x: self.sentAn(x))
+        return da
 
 zap = 'Сбербанк'
 na = '2025-01-01'
 kon = '2025-05-01'
 senty = Sentiment()
-da_lenta = senty.LentaNews(zap, na, kon)
-da_rbk = senty.RbkNews(zap, na, kon)
-da_aif = senty.AifNews(zap, na, kon)
-da = senty.obed(da_lenta, da_rbk, da_aif)
-### Фильтрация, где есть что-то похожее на запрос в заголовке
-da = da[da['title'].apply(lambda x: senty.Nstr(zap, x)) == 1]
-### Единственная проблема, что сентимент анализ через nltk принимает только английский текст, а новости сами на русском
-# da['perevod']=da['title'].apply(lambda x: senty.tt(x))
-# da['sent']=da['perevod'].apply(lambda x: senty.sentAn(x))
+tabl=senty.SAn(zap,na,kon)
