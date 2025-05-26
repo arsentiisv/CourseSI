@@ -2,11 +2,11 @@ import requests
 import pandas as pd
 from datetime import datetime
 from bs4 import BeautifulSoup
-from nltk.sentiment import SentimentIntensityAnalyzer
-from translate import Translator
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 
-class Sentiment:
+class Parser:
 
     def vrem1(self, s):
         s = s.split('-')
@@ -247,18 +247,18 @@ class Sentiment:
                 return 1
         return 0
 
-    def tt(self, text):
-        translator = Translator(from_lang='ru', to_lang='en')
-        try:
-            translated_text = translator.translate(text)
-            return translated_text
-        except Exception as e:
-            return f"Error: {e}"
-
-    def sentAn(self, s):
-        analyzer = SentimentIntensityAnalyzer()
-        rev = analyzer.polarity_scores(s)
-        return rev['compound']
+    # def tt(self, text):
+    #     translator = Translator(from_lang='ru', to_lang='en')
+    #     try:
+    #         translated_text = translator.translate(text)
+    #         return translated_text
+    #     except Exception as e:
+    #         return f"Error: {e}"
+    #
+    # def sentAn(self, s):
+    #     analyzer = SentimentIntensityAnalyzer()
+    #     rev = analyzer.polarity_scores(s)
+    #     return rev['compound']
 
 ### Здесь уже объединение всех функций
     def SAn(self, z, n, k):
@@ -273,8 +273,60 @@ class Sentiment:
         # da['sent']=da['perevod'].apply(lambda x: self.sentAn(x))
         return da
 
+
+class SentiAn:
+
+    def __init__(self):
+### Загрузка модели, eval нужен чтобы не дообучалась
+        model_name = 'blanchefort/rubert-base-cased-sentiment'
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.eval()
+
+        self.tipi = {
+            0: 'NEUTRAL',
+            1: 'POSITIVE',
+            2: 'NEGATIVE'
+        }
+
+    def senty(self, text):
+        inputs = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
+            sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
+            top_index = sorted_indices[0].item()
+            top_score = sorted_probs[0].item()
+            second_index = sorted_indices[1].item()
+            second_score = sorted_probs[1].item()
+### Нейтральный класс, берём среднее между нейтральным и вторым набольшим
+            if top_index == 0:
+                sign = 1 if second_index == 1 else -1
+                return {
+                    'label': self.tipi[second_index],
+                    'score': sign * (second_score + top_score) / 2
+                }
+### Позитивный или негативный
+            else:
+                sign = 1 if top_index == 1 else -1
+                return {
+                    'label': self.tipi[top_index],
+                    'score': sign * top_score
+                }
+
+    def fin(self, tabl):
+        vr = tabl['title'].apply(self.senty).apply(pd.Series)
+        tabl = pd.concat([tabl, vr], axis=1)
+        return tabl
+
+
+
 zap = 'Сбербанк'
 na = '2025-01-01'
 kon = '2025-05-01'
-senty = Sentiment()
-tabl=senty.SAn(zap,na,kon)
+
+parse = Parser()
+tabl=parse.SAn(zap,na,kon)
+
+sentic=SentiAn()
+tabl=sentic.fin(tabl)
