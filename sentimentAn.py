@@ -1,13 +1,12 @@
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime,timedelta
 from bs4 import BeautifulSoup
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 
 class Parser:
-
     def vrem1(self, s):
         s = s.split('-')
         s = str(s[2] + '.' + s[1] + '.' + s[0])
@@ -21,6 +20,8 @@ class Parser:
     def obed(self, el, eli, ele):
         bta = pd.concat([el, eli, ele])
         bta = bta.reset_index(drop=True)
+        bta['datetime']=bta['date']+' '+bta['time']
+        bta.sort_values('datetime')
         return bta
 
     def repka(self, s):
@@ -34,44 +35,47 @@ class Parser:
         return s
 
     def LentaNews(self, zapros, start, finish):
-        headers = {
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'ru,en;q=0.9',
-            'Connection': 'keep-alive',
-            # 'Cookie': 'lid=vAsAAOHiXWcmQGRmAWS8AQB=; tmr_lvid=e1c03db4d52cb1d5d6728931f33ce66e; tmr_lvidTS=1734206178094; _ym_uid=1734206178829234461; _ym_d=1734206178; adtech_uid=219b07cf-bb76-43af-8c21-df8c2f459068%3Alenta.ru; top100_id=t1.80674.886928341.1734206178198; __ldr_auto_key=dc3bf7eb-b716-4760-80b0-acbf8a67ace3; VARIANT=0; chash=gnELGAra4z; vpuid=1734361808.311-1843067462000294; _ym_isad=2; domain_sid=NFrMg_-1JkIfFBa5MnHA-%3A1734603690087; t3_sid_4422985=s1.1847186340.1734606301805.1734607985403.2.26; t3_sid_7643964=s1.1962430312.1734607890200.1734607985405.2.28; t3_sid_7356279=s1.1167604220.1734607890208.1734607985406.2.26; lids=482540130A7DDFB5; tmr_detect=0%7C1734617599702; t3_sid_80674=s1.1170661902.1734617583945.1734617619365.6.27',
-            'Referer': 'https://lenta.ru/search?query=%D0%A1%D0%B1%D0%B5%D1%80%D0%B1%D0%B0%D0%BD%D0%BA',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
-            'sec-ch-ua': '"Chromium";v="130", "YaBrowser";v="24.12", "Not?A_Brand";v="99", "Yowser";v="2.5"',
-            'sec-ch-ua-mobile': '?1',
-            'sec-ch-ua-platform': '"Android"',
-        }
-        params = {
-            'query': f'{zapros}',
-            'from': '0',
-            'size': '10',
-            'sort': '2',
-            'title_only': '0',
-            'domain': '1',
-            'modified,format': 'yyyy-MM-dd',
-            'modified,from': f'{start}',
-            'modified,to': f'{finish}',
-        }
-        response = requests.get('https://lenta.ru/search/v2/process', params=params, headers=headers)
-        vr = response.json()['total_found']
-        params['size'] = vr
-        response = requests.get('https://lenta.ru/search/v2/process', params=params, headers=headers)
-        da = response.json()
-        del vr
-        el = pd.DataFrame(da['matches'])[['title', 'pubdate']]
-        el['pubdate'] = el['pubdate'].apply(lambda x: datetime.fromtimestamp(x))
-        el['time'] = el['pubdate'].apply(lambda x: str(x)[11:])
-        el['pubdate'] = el['pubdate'].apply(lambda x: str(x)[:10])
-        el.rename(columns={'pubdate': 'date'}, inplace=True)
-        el['source'] = 'Lenta'
-        return el
+        try:
+            headers = {
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'ru,en;q=0.9',
+                'Connection': 'keep-alive',
+                # 'Cookie': 'lid=vAsAAOHiXWcmQGRmAWS8AQB=; tmr_lvid=e1c03db4d52cb1d5d6728931f33ce66e; tmr_lvidTS=1734206178094; _ym_uid=1734206178829234461; _ym_d=1734206178; adtech_uid=219b07cf-bb76-43af-8c21-df8c2f459068%3Alenta.ru; top100_id=t1.80674.886928341.1734206178198; __ldr_auto_key=dc3bf7eb-b716-4760-80b0-acbf8a67ace3; VARIANT=0; chash=gnELGAra4z; vpuid=1734361808.311-1843067462000294; _ym_isad=2; domain_sid=NFrMg_-1JkIfFBa5MnHA-%3A1734603690087; t3_sid_4422985=s1.1847186340.1734606301805.1734607985403.2.26; t3_sid_7643964=s1.1962430312.1734607890200.1734607985405.2.28; t3_sid_7356279=s1.1167604220.1734607890208.1734607985406.2.26; lids=482540130A7DDFB5; tmr_detect=0%7C1734617599702; t3_sid_80674=s1.1170661902.1734617583945.1734617619365.6.27',
+                'Referer': 'https://lenta.ru/search?query=%D0%A1%D0%B1%D0%B5%D1%80%D0%B1%D0%B0%D0%BD%D0%BA',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+                'sec-ch-ua': '"Chromium";v="130", "YaBrowser";v="24.12", "Not?A_Brand";v="99", "Yowser";v="2.5"',
+                'sec-ch-ua-mobile': '?1',
+                'sec-ch-ua-platform': '"Android"',
+            }
+            params = {
+                'query': f'{zapros}',
+                'from': '0',
+                'size': '10',
+                'sort': '2',
+                'title_only': '0',
+                'domain': '1',
+                'modified,format': 'yyyy-MM-dd',
+                'modified,from': f'{start}',
+                'modified,to': f'{finish}',
+            }
+            response = requests.get('https://lenta.ru/search/v2/process', params=params, headers=headers)
+            vr = response.json()['total_found']
+            params['size'] = vr
+            response = requests.get('https://lenta.ru/search/v2/process', params=params, headers=headers)
+            da = response.json()
+            del vr
+            el = pd.DataFrame(da['matches'])[['title', 'pubdate']]
+            el['pubdate'] = el['pubdate'].apply(lambda x: datetime.fromtimestamp(x))
+            el['time'] = el['pubdate'].apply(lambda x: str(x)[11:])
+            el['pubdate'] = el['pubdate'].apply(lambda x: str(x)[:10])
+            el.rename(columns={'pubdate': 'date'}, inplace=True)
+            el['source'] = 'Lenta'
+            return el
+        except Exception:
+            return pd.DataFrame(columns=['title', 'date', 'time', 'source'])
 
     def RbkNews(self, zapros, start, finish):
         start = self.vrem1(start)
@@ -99,26 +103,28 @@ class Parser:
         }
         da = {'items': []}
         nst = 0
-        while True:
-            params['page'] = nst
-            response = requests.get('https://www.rbc.ru/search/ajax/', params=params, headers=headers)
-            vr = response.json()
-            for i in range(len(vr['items'])):
-                if (zapros in (vr['items'][i]['title'].split()) or (
-                        vr['items'][i]['body'] != None and zapros in (vr['items'][i]['body'].split()))):
-                    da['items'].append(vr['items'][i])
-            if not vr['moreExists']:
-                break
-            if vr['moreExists']:
-                nst += 1
-        eli = pd.DataFrame(da['items'])[['title', 'publish_date_t']]
-        # 'project', 'category']]
-        eli['publish_date_t'] = eli['publish_date_t'].apply(lambda x: datetime.fromtimestamp(x))
-        eli['time'] = eli['publish_date_t'].apply(lambda x: str(x)[11:])
-        eli['publish_date_t'] = eli['publish_date_t'].apply(lambda x: str(x)[:10])
-        eli.rename(columns={'publish_date_t': 'date'}, inplace=True)
-        eli['source'] = 'RBK'
-        return eli
+        try:
+            while True:
+                params['page'] = nst
+                response = requests.get('https://www.rbc.ru/search/ajax/', params=params, headers=headers)
+                vr = response.json()
+                for i in range(len(vr['items'])):
+                    if vr['items'][i]['body'] != None and vr['items'][i]['title'] != None:
+                        da['items'].append(vr['items'][i])
+                if not vr['moreExists']:
+                    break
+                if vr['moreExists']:
+                    nst += 1
+            eli = pd.DataFrame(da['items'])[['title', 'publish_date_t']]
+            # 'project', 'category']]
+            eli['publish_date_t'] = eli['publish_date_t'].apply(lambda x: datetime.fromtimestamp(x))
+            eli['time'] = eli['publish_date_t'].apply(lambda x: str(x)[11:])
+            eli['publish_date_t'] = eli['publish_date_t'].apply(lambda x: str(x)[:10])
+            eli.rename(columns={'publish_date_t': 'date'}, inplace=True)
+            eli['source'] = 'RBK'
+            return eli
+        except Exception:
+            return pd.DataFrame(columns=['title', 'date', 'time', 'source'])
 
     ###  Эту функцию не используем, но она работает
     def RiaNews(self, zapros, start, finish):
@@ -172,7 +178,7 @@ class Parser:
         ele['time'] = ele['time'].apply(lambda x: x + ':00')
         return ele
 
-    def AifNews(self, zapros, nachalo, konchalo):
+    def AifNews(self, zapros, start, finish):
         headers = {
             'accept': 'application/json, text/javascript, */*; q=0.01',
             'accept-language': 'ru,en;q=0.9',
@@ -194,31 +200,33 @@ class Parser:
               'date': [],
               # 'type': [],
               }
-        while True:
-            data = {
-                'page': f'{q}',
-            }
-            response = requests.post(
-                f'https://aif.ru/search/index/index/content_type/2/from/{nachalo}/to/{konchalo}/text/{zapros}',
-                headers=headers, data=data)
-            vr = response.json()
-            sta = vr['isFinished']
-            soup = BeautifulSoup(vr['data'], features="lxml")
-            block = soup.findAll(class_='list_item')
-            for item in block:
-                da['title'].append(self.repka(str(item.find('h3'))))
-                da['date'].append(str(item.find(class_='text_box__date'))[29:-7])
-                # da['type'].append(fim(str(item.find(class_="rubric_link no_title_element_js"))))
-            if not sta:
-                q += 1
-            if sta:
-                break
-        elo = pd.DataFrame(da)
-        elo['time'] = elo['date'].apply(lambda x: x[11:] + ':00')
-        elo['date'] = elo['date'].apply(lambda x: self.vrem2(x[:10]))
-        elo['source'] = 'AiF'
-        return elo
-
+        try:
+            while True:
+                data = {
+                    'page': f'{q}',
+                }
+                response = requests.post(
+                    f'https://aif.ru/search/index/index/content_type/2/from/{start}/to/{finish}/text/{zapros}',
+                    headers=headers, data=data)
+                vr = response.json()
+                sta = vr['isFinished']
+                soup = BeautifulSoup(vr['data'], features="lxml")
+                block = soup.findAll(class_='list_item')
+                for item in block:
+                    da['title'].append(self.repka(str(item.find('h3'))))
+                    da['date'].append(str(item.find(class_='text_box__date'))[29:-7])
+                    # da['type'].append(fim(str(item.find(class_="rubric_link no_title_element_js"))))
+                if not sta:
+                    q += 1
+                if sta:
+                    break
+            elo = pd.DataFrame(da)
+            elo['time'] = elo['date'].apply(lambda x: x[11:] + ':00')
+            elo['date'] = elo['date'].apply(lambda x: self.vrem2(x[:10]))
+            elo['source'] = 'AiF'
+            return elo
+        except Exception:
+            return pd.DataFrame(columns=['title', 'date', 'time', 'source'])
     def simS(self, str1, str2, zn):
         len_str1 = len(str1)
         len_str2 = len(str2)
@@ -241,92 +249,86 @@ class Parser:
 
 ### Кэф прикручивается для более точного поиска, больше -> точнее
     def Nstr(self, str1, spis):
-        kef = 1.5
+        kef = 1.75
         for el in spis.split():
             if self.simS(str1, el, max(len(str1), len(el)) // kef):
                 return 1
         return 0
-
-    # def tt(self, text):
-    #     translator = Translator(from_lang='ru', to_lang='en')
-    #     try:
-    #         translated_text = translator.translate(text)
-    #         return translated_text
-    #     except Exception as e:
-    #         return f"Error: {e}"
-    #
-    # def sentAn(self, s):
-    #     analyzer = SentimentIntensityAnalyzer()
-    #     rev = analyzer.polarity_scores(s)
-    #     return rev['compound']
 
 ### Здесь уже объединение всех функций
     def SAn(self, z, n, k):
         da_lenta = self.LentaNews(z, n, k)
         da_rbk = self.RbkNews(z, n, k)
         da_aif = self.AifNews(z, n, k)
-        da = self.obed(da_lenta, da_rbk, da_aif)
-### Фильтрация, где есть что-то похожее на запрос в заголовке
-        da = da[da['title'].apply(lambda x: self.Nstr(z, x)) == 1]
-### Единственная проблема, что сентимент анализ через nltk принимает только английский текст, а новости сами на русском
-        # da['perevod']=da['title'].apply(lambda x: self.tt(x))
-        # da['sent']=da['perevod'].apply(lambda x: self.sentAn(x))
+
+        dataframes = [df for df in [da_lenta, da_rbk, da_aif] if not df.empty]
+
+        if not dataframes:
+            return pd.DataFrame(columns=['title', 'date', 'time', 'source'])
+
+        da = self.obed(*dataframes) if len(dataframes) > 1 else dataframes[0]
+
+        # Фильтрация только если есть данные
+        if not da.empty and 'title' in da.columns:
+            da = da[da['title'].apply(lambda x: self.Nstr(z, x)) == 1]
         return da
 
 
 class SentiAn:
 
     def __init__(self):
-### Загрузка модели, eval нужен чтобы не дообучалась
-        model_name = 'blanchefort/rubert-base-cased-sentiment'
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-        self.model.eval()
-
-        self.tipi = {
-            0: 'NEUTRAL',
-            1: 'POSITIVE',
-            2: 'NEGATIVE'
-        }
+        try:
+            model_name = 'blanchefort/rubert-base-cased-sentiment'
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, timeout=30, local_files_only=False)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_name, timeout=30, local_files_only=False)
+            self.model.eval()
+            self.tipi = {
+                0: 'NEUTRAL',
+                1: 'POSITIVE',
+                2: 'NEGATIVE'
+            }
+        except Exception:
+            self.tokenizer = None
+            self.model = None
+            self.tipi = {
+                0: 'NEUTRAL',
+                1: 'POSITIVE',
+                2: 'NEGATIVE'
+            }
 
     def senty(self, text):
-        inputs = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
-            sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
-            top_index = sorted_indices[0].item()
-            top_score = sorted_probs[0].item()
-            second_index = sorted_indices[1].item()
-            second_score = sorted_probs[1].item()
-### Нейтральный класс, берём среднее между нейтральным и вторым набольшим
-            if top_index == 0:
-                sign = 1 if second_index == 1 else -1
-                return {
-                    'label': self.tipi[second_index],
-                    'score': sign * (second_score + top_score) / 2
-                }
-### Позитивный или негативный
-            else:
-                sign = 1 if top_index == 1 else -1
-                return {
-                    'label': self.tipi[top_index],
-                    'score': sign * top_score
-                }
+        try:
+            if self.tokenizer is None or self.model is None:
+                return {'label': 'NEUTRAL', 'score': 0}
+            inputs = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
+                sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
+                top_index = sorted_indices[0].item()
+                top_score = sorted_probs[0].item()
+                second_index = sorted_indices[1].item()
+                second_score = sorted_probs[1].item()
+                if top_index == 0:
+                    sign = 1 if second_index == 1 else -1
+                    return {
+                        'label': self.tipi[second_index],
+                        'score': sign * (second_score + top_score) / 3
+                    }
+                else:
+                    sign = 1 if top_index == 1 else -1
+                    return {
+                        'label': self.tipi[top_index],
+                        'score': sign * top_score
+                    }
+        except Exception:
+            return {'label': 'NEUTRAL', 'score': 0}
 
     def fin(self, tabl):
-        vr = tabl['title'].apply(self.senty).apply(pd.Series)
-        tabl = pd.concat([tabl, vr], axis=1)
-        return tabl
+        try:
+            vr = tabl['title'].apply(self.senty).apply(pd.Series)
+            tabl = pd.concat([tabl, vr], axis=1)
+            return tabl
+        except Exception:
+            return tabl
 
-
-
-zap = 'Сбербанк'
-na = '2025-01-01'
-kon = '2025-05-01'
-
-parse = Parser()
-tabl=parse.SAn(zap,na,kon)
-
-sentic=SentiAn()
-tabl=sentic.fin(tabl)
