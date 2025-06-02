@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -19,9 +19,7 @@ class Parser:
 
     def obed(self, el, eli, ele):
         bta = pd.concat([el, eli, ele])
-        bta = bta.reset_index(drop=True)
-        bta['datetime']=bta['date']+' '+bta['time']
-        bta.sort_values('datetime')
+        bta['datetime'] = bta['date'] + ' ' + bta['time']
         return bta
 
     def repka(self, s):
@@ -227,6 +225,7 @@ class Parser:
             return elo
         except Exception:
             return pd.DataFrame(columns=['title', 'date', 'time', 'source'])
+
     def simS(self, str1, str2, zn):
         len_str1 = len(str1)
         len_str2 = len(str2)
@@ -247,7 +246,7 @@ class Parser:
             return 1
         return 0
 
-### Кэф прикручивается для более точного поиска, больше -> точнее
+    ### Кэф прикручивается для более точного поиска, больше -> точнее
     def Nstr(self, str1, spis):
         kef = 1.75
         for el in spis.split():
@@ -255,7 +254,7 @@ class Parser:
                 return 1
         return 0
 
-### Здесь уже объединение всех функций
+    ### Здесь уже объединение всех функций
     def SAn(self, z, n, k):
         da_lenta = self.LentaNews(z, n, k)
         da_rbk = self.RbkNews(z, n, k)
@@ -277,58 +276,56 @@ class Parser:
 class SentiAn:
 
     def __init__(self):
-        try:
-            model_name = 'blanchefort/rubert-base-cased-sentiment'
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, timeout=30, local_files_only=False)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name, timeout=30, local_files_only=False)
-            self.model.eval()
-            self.tipi = {
-                0: 'NEUTRAL',
-                1: 'POSITIVE',
-                2: 'NEGATIVE'
-            }
-        except Exception:
-            self.tokenizer = None
-            self.model = None
-            self.tipi = {
-                0: 'NEUTRAL',
-                1: 'POSITIVE',
-                2: 'NEGATIVE'
-            }
+        ### Загрузка модели, eval нужен чтобы не дообучалась
+        model_name = 'blanchefort/rubert-base-cased-sentiment'
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.eval()
+
+        self.tipi = {
+            0: 'NEUTRAL',
+            1: 'POSITIVE',
+            2: 'NEGATIVE'
+        }
 
     def senty(self, text):
-        try:
-            if self.tokenizer is None or self.model is None:
-                return {'label': 'NEUTRAL', 'score': 0}
-            inputs = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
-                sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
-                top_index = sorted_indices[0].item()
-                top_score = sorted_probs[0].item()
-                second_index = sorted_indices[1].item()
-                second_score = sorted_probs[1].item()
-                if top_index == 0:
-                    sign = 1 if second_index == 1 else -1
-                    return {
-                        'label': self.tipi[second_index],
-                        'score': sign * (second_score + top_score) / 3
-                    }
-                else:
-                    sign = 1 if top_index == 1 else -1
-                    return {
-                        'label': self.tipi[top_index],
-                        'score': sign * top_score
-                    }
-        except Exception:
-            return {'label': 'NEUTRAL', 'score': 0}
+        inputs = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
+            sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
+            top_index = sorted_indices[0].item()
+            top_score = sorted_probs[0].item()
+            second_index = sorted_indices[1].item()
+            second_score = sorted_probs[1].item()
+            ### Нейтральный класс, берём среднее между нейтральным и вторым набольшим
+            if top_index == 0:
+                sign = 1 if second_index == 1 else -1
+                return {
+                    'label': self.tipi[second_index],
+                    'score': sign * (second_score + top_score) / 2
+                }
+            ### Позитивный или негативный
+            else:
+                sign = 1 if top_index == 1 else -1
+                return {
+                    'label': self.tipi[top_index],
+                    'score': sign * top_score
+                }
 
     def fin(self, tabl):
-        try:
-            vr = tabl['title'].apply(self.senty).apply(pd.Series)
-            tabl = pd.concat([tabl, vr], axis=1)
-            return tabl
-        except Exception:
-            return tabl
+        vr = tabl['title'].apply(self.senty).apply(pd.Series)
+        tabl = pd.concat([tabl, vr], axis=1)
+        tabl = tabl[abs(tabl['score']) >= 0.5]
+        tabl = tabl.sort_values('datetime')[['datetime', 'score']]
+        return tabl
 
+# zap = 'Сбербанк'
+# na = '2025-01-01'
+# kon = '2025-03-01'
+# parse = Parser()
+# tabl=parse.SAn(zap,na,kon)
+#
+# sentic=SentiAn()
+# tabl=sentic.fin(tabl)
+# print(tabl)
