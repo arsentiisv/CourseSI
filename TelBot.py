@@ -3,11 +3,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import telebot
-from telebot import types
 from tinkoff.invest import Client, CandleInterval
 from RefTrain import StockPredictorApp
 from SentimentPart import Parser, SentiAn
-from gpt1 import GPTAnalyzer
+from botgptsentim import GPTAnalyzer
 import time
 import threading
 
@@ -157,7 +156,11 @@ def send_candle_chart(chat_id: int) -> None:
 
         metrics_text = f"MAE: {mae:.2f} │ RMSE: {rmse:.2f} │ MAPE: {mape:.2f}% │ R²: {r2:.4f}"
         fig.update_layout(
-            title=f"Forecast of {tiki} with confidence intervals",
+            title={
+                'text': f"Forecast of {tiki} with confidence intervals",
+                'x': 0.5,
+                'xanchor': 'center'
+            },
             # xaxis_title="Date",
             yaxis_title="Close Price",
             template="plotly_white",
@@ -209,6 +212,34 @@ def start(msg):
     }
     bot.send_message(chat_id, "Enter the name of the company\nor it's ticker:")
 
+#Команда для новостей /News
+@bot.message_handler(commands=['News'])
+def news_message(msg):
+    chat_id = msg.chat.id
+
+    # Проверка не пустой ли чат
+    if chat_id not in user_data or 'search' not in user_data[chat_id]:
+        bot.send_message(chat_id, "Please first search for a company using /start")
+        return
+
+    kon = datetime.now()
+    na = kon - timedelta(days=40)
+    kon = kon.strftime('%Y-%m-%d')
+    na = na.strftime('%Y-%m-%d')
+    txt = user_data[chat_id]['search']
+
+    tabl = parse.SAn(txt, na, kon)
+    tabl = sentic.fin(tabl)
+    rows = []
+    for i, row in tabl.iterrows():
+        rows.append(f"{row['Date and time']}\n{row['title']}")
+    s="\n\n".join(rows)
+
+    bot.send_message(chat_id, f'Latest news:\n{s}')
+    bot.send_message(chat_id,"For LLM analysis /Describe\nTo restart press /start")
+
+
+
 
 # Команда /Describe опциональная
 @bot.message_handler(commands=['Describe'])
@@ -242,7 +273,7 @@ def llm_message(msg):
         )
         bot.send_message(chat_id, f"GPT analysis:\n{gpt_result}")
 
-        # Удаляем временный файл из папка
+        # Удаляем временный файл из папки
         if image_path and os.path.exists(image_path):
             os.remove(image_path)
 
@@ -253,8 +284,11 @@ def llm_message(msg):
     bot.send_message(chat_id, "To restart press /start")
 
 
+
+
+
 def predfinal_message(chat_id: int):
-    bot.send_message(chat_id, "Graph is done\nfor llm press /Describe")
+    bot.send_message(chat_id, "Graph is done\nTo get news press /News\n For LLM analysis /Describe")
 
 
 # Нужно доработать, все остальные сообщения принимаются через шаблоны
