@@ -37,16 +37,16 @@ class TinkoffDataFetcher:
                     break
 
             if not figi:
-                print(f"Инструмент {ticker} не найден.")
+                print(f"Instrument {ticker} not found.")
                 return None
 
             data = []
             current_start = start_date
-            step = timedelta(days=2 * 365)  # 2 года
+            step = timedelta(days=2 * 365)  # 2 years
 
             while current_start < end_date:
                 current_end = min(current_start + step, end_date)
-                print(f"Загрузка данных за период {current_start.strftime('%Y-%m-%d')} - {current_end.strftime('%Y-%m-%d')}")
+                print(f"Fetching data for period {current_start.strftime('%Y-%m-%d')} - {current_end.strftime('%Y-%m-%d')}")
                 try:
                     candles = market_data.get_candles(
                         figi=figi,
@@ -65,12 +65,12 @@ class TinkoffDataFetcher:
                             'volume': candle.volume
                         })
                 except Exception as e:
-                    print(f"Ошибка при запросе данных за период {current_start.strftime('%Y-%m-%d')} - {current_end.strftime('%Y-%m-%d')}: {e}")
+                    print(f"Error fetching data for period {current_start.strftime('%Y-%m-%d')} - {current_end.strftime('%Y-%m-%d')}: {e}")
                     break
                 current_start = current_end + timedelta(days=1)
 
             if not data:
-                print(f"Не удалось получить данные для {ticker}.")
+                print(f"Failed to fetch data for {ticker}.")
                 return None
 
             df = pd.DataFrame(data)
@@ -98,7 +98,7 @@ class DataPreprocessor:
 
 
 class VolumeIndicators:
-    VOLUME_INDICATORS_ADDED = False  # class attribute to track printing once
+    VOLUME_INDICATORS_ADDED = False  # Class attribute to track printing once
 
     @classmethod
     def add_volume_indicators(cls, data):
@@ -137,11 +137,11 @@ class VolumeIndicators:
             data['ad_oscillator'] = data['ad_line'].rolling(window=10).mean()
 
             if not cls.VOLUME_INDICATORS_ADDED:
-                print("✅ Объемные индикаторы добавлены успешно")
+                print("Volume indicators added successfully")
                 cls.VOLUME_INDICATORS_ADDED = True
 
         except Exception as e:
-            print(f"⚠️  Ошибка при добавлении объемных индикаторов: {e}")
+            print(f"Error adding volume indicators: {e}")
             data['obv_ratio'] = 1.0
             data['price_vs_vwap'] = 0.0
             data['mfi'] = 50.0
@@ -210,7 +210,7 @@ class TechnicalIndicators:
 class FeatureSelector:
     @staticmethod
     def improved_feature_selection(data, n_features=20, method='hybrid'):
-        print(f"🔍 Исходное количество строк данных: {len(data)}")
+        print(f"Initial number of data rows: {len(data)}")
 
         base_features = ['sma_10', 'sma_20', 'sma_50', 'ema_12', 'ema_26', 'rsi', 'macd',
                          'macd_signal', 'macd_histogram', 'bb_upper', 'bb_lower', 'bb_width', 'bb_position',
@@ -220,17 +220,17 @@ class FeatureSelector:
         volume_features = ['obv_ratio', 'price_vs_vwap', 'mfi', 'vpt_ma', 'ad_oscillator']
 
         available_features = [f for f in base_features + volume_features if f in data.columns]
-        print(f"📊 Доступно признаков: {len(available_features)}")
-        print(f"📊 Признаки в данных: {list(data.columns)}")
+        print(f"Available features: {len(available_features)}")
+        print(f"Features in data: {list(data.columns)}")
 
         data_clean = data[available_features + ['close']].dropna()
-        print(f"🧹 После очистки от NaN: {len(data_clean)} строк")
+        print(f"After NaN cleaning: {len(data_clean)} rows")
 
         if len(data_clean) == 0:
-            print("❌ ОШИБКА: Все данные содержат NaN! Проверьте расчет индикаторов.")
+            print("ERROR: All data contains NaN! Check indicator calculations.")
             fallback_features = ['sma_10', 'sma_20', 'rsi', 'macd', 'bb_position', 'volume_ratio', 'atr', 'momentum_5']
             available_fallback = [f for f in fallback_features if f in data.columns]
-            print(f"🔄 Используем базовые признаки: {available_fallback}")
+            print(f"Using fallback features: {available_fallback}")
             return available_fallback[:min(n_features, len(available_fallback))]
 
         X = data_clean[available_features]
@@ -245,7 +245,7 @@ class FeatureSelector:
                 'importance': rf_importance.feature_importances_
             }).sort_values('importance', ascending=False)
 
-            print("\n🔍 ТОП-10 важных признаков (Random Forest):")
+            print("\nTop 10 important features (Random Forest):")
             for i, row in feature_importance.head(10).iterrows():
                 print(f"  {row['feature']}: {row['importance']:.4f}")
 
@@ -268,7 +268,7 @@ class FeatureSelector:
                                if i < j and corr_matrix.iloc[i, j] > 0.95]
 
             if high_corr_pairs:
-                print(f"\n⚠️  Найдено {len(high_corr_pairs)} пар с высокой корреляцией (>0.95):")
+                print(f"\nFound {len(high_corr_pairs)} pairs with high correlation (>0.95):")
                 for feat1, feat2, corr_val in high_corr_pairs:
                     print(f"  {feat1} ↔ {feat2}: {corr_val:.3f}")
 
@@ -277,7 +277,7 @@ class FeatureSelector:
             rfe.fit(X, y)
             selected_features = [available_features[i] for i in range(len(available_features)) if rfe.support_[i]]
 
-        print(f"\n✅ Выбранные признаки ({len(selected_features)}):")
+        print(f"\nSelected features ({len(selected_features)}):")
 
         price_features = [f for f in selected_features if
                           any(x in f for x in ['sma', 'ema', 'bb', 'close', 'momentum', 'roc'])]
@@ -288,13 +288,13 @@ class FeatureSelector:
                           f not in price_features + volume_features_selected + oscillator_features]
 
         if price_features:
-            print(f"  📈 Ценовые: {price_features}")
+            print(f"  Price-based: {price_features}")
         if volume_features_selected:
-            print(f"  📊 Объемные: {volume_features_selected}")
+            print(f"  Volume-based: {volume_features_selected}")
         if oscillator_features:
-            print(f"  📉 Осцилляторы: {oscillator_features}")
+            print(f"  Oscillators: {oscillator_features}")
         if other_features:
-            print(f"  🔧 Прочие: {other_features}")
+            print(f"  Others: {other_features}")
 
         return selected_features
 
@@ -430,15 +430,15 @@ class EnsemblePredictor:
         return mean_pred, lower_ci, upper_ci
 
     def predict_ensemble(self, data, n_days):
-        print("🔮 Генерация прогноза с доверительными интервалами...")
+        print("Generating forecast with confidence intervals...")
 
         mean_pred, lower_ci, upper_ci = self.predict_with_uncertainty(data, n_days)
 
         current_volatility = data['volatility'].iloc[-20:].mean()
         lstm_weight, rf_weight = self.adaptive_ensemble_weights(current_volatility)
 
-        print(f"📊 Текущая волатильность: {current_volatility:.4f}")
-        print(f"⚖️  Адаптивные веса - LSTM: {lstm_weight:.2f}, RF: {rf_weight:.2f}")
+        print(f"Current volatility: {current_volatility:.4f}")
+        print(f"Adaptive weights - LSTM: {lstm_weight:.2f}, RF: {rf_weight:.2f}")
 
         return mean_pred, lower_ci, upper_ci
 
@@ -449,15 +449,15 @@ class StockPredictorApp:
         self.fetcher = TinkoffDataFetcher(token)
 
     def run(self):
-        ticker = input("Введите тикер акции (например, SBER для Сбербанка): ").upper()
-        forecast_days = int(input("Введите количество дней прогноза: "))
+        ticker = input("Enter stock ticker (e.g., SBER for Sberbank): ").upper()
+        forecast_days = int(input("Enter number of forecast days: "))
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=10 * 365)
 
         data = self.fetcher.fetch_data(ticker, start_date, end_date)
         if data is None or len(data) < 200:
-            print("Недостаточно данных для анализа.")
+            print("Insufficient data for analysis.")
             return
 
         data = DataPreprocessor.preprocess_data(data, outlier_method='iqr')
@@ -505,16 +505,16 @@ class StockPredictorApp:
         r2 = r2_score(y_test_actual, y_pred_ensemble)
 
         print("\n" + "=" * 50)
-        print("### МЕТРИКИ ПРОИЗВОДИТЕЛЬНОСТИ ###")
+        print("### PERFORMANCE METRICS ###")
         print("=" * 50)
         print(f"MAE: {mae:.2f}")
         print(f"RMSE: {rmse:.2f}")
         print(f"MAPE: {mape:.2f}%")
         print(f"R²: {r2:.4f}")
-        print(f"Адаптивные веса (тест) - LSTM: {lstm_w:.2f}, RF: {rf_w:.2f}")
+        print(f"Adaptive weights (test) - LSTM: {lstm_w:.2f}, RF: {rf_w:.2f}")
 
         ensemble_predictor = EnsemblePredictor(model_lstm, model_rf, selected_features,
-                                               scaler_features, scaler_target, window_size=30)
+                                              scaler_features, scaler_target, window_size=30)
 
         future_preds, lower_ci, upper_ci = ensemble_predictor.predict_ensemble(data, forecast_days)
 
@@ -529,9 +529,9 @@ class StockPredictorApp:
         plot_y_pred_ensemble = y_pred_ensemble[test_mask]
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=plot_data.index, y=plot_data["close"], name="История", line=dict(color="blue")))
-        fig.add_trace(go.Scatter(x=plot_test_dates, y=plot_y_pred_ensemble, name="Тестовый прогноз", line=dict(color="orange")))
-        fig.add_trace(go.Scatter(x=future_dates, y=future_preds, name="Будущий прогноз", line=dict(color="green", width=3)))
+        fig.add_trace(go.Scatter(x=plot_data.index, y=plot_data["close"], name="Historical", line=dict(color="blue")))
+        fig.add_trace(go.Scatter(x=plot_test_dates, y=plot_y_pred_ensemble, name="Test Forecast", line=dict(color="orange")))
+        fig.add_trace(go.Scatter(x=future_dates, y=future_preds, name="Future Forecast", line=dict(color="green", width=3)))
 
         fig.add_trace(go.Scatter(
             x=future_dates + future_dates[::-1],
@@ -539,33 +539,33 @@ class StockPredictorApp:
             fill='toself',
             fillcolor='rgba(0,255,0,0.2)',
             line=dict(color='rgba(255,255,255,0)'),
-            name='80% доверительный интервал',
+            name='80% Confidence Interval',
             showlegend=True
         ))
 
         fig.update_layout(
-            title=f"Прогноз цен акций для {ticker} с доверительными интервалами (последние 5 лет)",
-            xaxis_title="Дата",
-            yaxis_title="Цена закрытия (RUB)",
+            title=f"Stock Price Forecast for {ticker} with Confidence Intervals (Last 5 Years, With Volume Indicators)",
+            xaxis_title="Date",
+            yaxis_title="Closing Price (RUB)",
             template="plotly_white"
         )
         fig.show()
 
         print("\n" + "=" * 60)
-        print("### БУДУЩИЙ ПРОГНОЗ С ДОВЕРИТЕЛЬНЫМИ ИНТЕРВАЛАМИ ###")
+        print("### FUTURE FORECAST WITH CONFIDENCE INTERVALS ###")
         print("=" * 60)
         for i, (date, pred, lower, upper) in enumerate(zip(future_dates, future_preds, lower_ci, upper_ci)):
             confidence_width = upper - lower
-            print(f"День {i + 1} ({date.strftime('%Y-%m-%d')}): {pred:.2f} RUB [{lower:.2f} - {upper:.2f}] (±{confidence_width / 2:.2f})")
+            print(f"Day {i + 1} ({date.strftime('%Y-%m-%d')}): {pred:.2f} RUB [{lower:.2f} - {upper:.2f}] (±{confidence_width / 2:.2f})")
 
         avg_conf_width = np.mean(upper_ci - lower_ci)
-        print(f"\n📈 Средняя ширина доверительного интервала: ±{avg_conf_width / 2:.2f} RUB")
+        print(f"\nAverage confidence interval width: ±{avg_conf_width / 2:.2f} RUB")
         rel_uncertainty = (avg_conf_width / 2) / np.mean(future_preds) * 100
-        print(f"📊 Относительная неопределенность: {rel_uncertainty:.2f}%")
+        print(f"Relative uncertainty: {rel_uncertainty:.2f}%")
         max_uncertainty = np.max(upper_ci - lower_ci) / 2
         min_uncertainty = np.min(upper_ci - lower_ci) / 2
-        print(f"📊 Диапазон неопределенности: {min_uncertainty:.2f} - {max_uncertainty:.2f} RUB")
-        print(f"📊 Коэффициент вариации неопределенности: {np.std(upper_ci - lower_ci) / avg_conf_width:.2f}")
+        print(f"Uncertainty range: {min_uncertainty:.2f} - {max_uncertainty:.2f} RUB")
+        print(f"Coefficient of variation of uncertainty: {np.std(upper_ci - lower_ci) / avg_conf_width:.2f}")
 
 
 if __name__ == "__main__":
