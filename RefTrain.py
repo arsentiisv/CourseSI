@@ -78,11 +78,9 @@ class VolumeIndicators:
             data['ad_oscillator'] = data['ad_line'].rolling(window=10).mean()
 
             if not cls.VOLUME_INDICATORS_ADDED:
-                # print("✅ Объемные индикаторы добавлены успешно")
                 cls.VOLUME_INDICATORS_ADDED = True
 
         except Exception as e:
-            # print(f"⚠️  Ошибка при добавлении объемных индикаторов: {e}")
             data['obv_ratio'] = 1.0
             data['price_vs_vwap'] = 0.0
             data['mfi'] = 50.0
